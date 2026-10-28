@@ -1,0 +1,38 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+<rect width="76" height="66" fill="transparent"/>
+
+
+<!-- face -->
+<circle cx="38" cy="33" r="22"
+stroke="#2196F3"
+stroke-width="3"/>
+
+
+<!-- eyes -->
+<circle cx="30" cy="29"
+r="2.5"
+fill="#2196F3"/>
+
+<circle cx="46" cy="29"
+r="2.5"
+fill="#2196F3"/>
+
+
+<!-- small rounded B mouth -->
+<path d="
+M36 40
+C40 38.5 43 39 43 41
+C43 42.5 41 43 39 43
+C41 43 43 43.5 43 45
+C43 46 40 46.5 36 44"
+stroke="#2196F3"
+stroke-width="2.5"
+stroke-linecap="round"
+stroke-linejoin="round"
+fill="none"/>
+
+
+</svg>

@@ -1,0 +1,139 @@
+apply plugin: 'com.android.application'
+//apply plugin: 'com.google.gms.google-services'
+
+android {
+    compileSdkVersion 30 //23
+    buildToolsVersion '30.0.0'
+
+    defaultConfig {
+        applicationId "org.robbojunior.android"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    productFlavors {
+        free {
+            applicationId "org.icqbot.androidfree"
+            minSdkVersion 21 //17
+            targetSdkVersion 35 //25
+            versionCode 8
+
+            versionName "2.5.4"
+            //版本名后面添加一句话，意思就是flavor dimension 它的维度就是该版本号，这样维度就是都是统一的了
+            flavorDimensions "versionCode"
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:25.1.1'
+
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+
+    /*implementation 'com.lxj:xpopup:1.9.0'
+    //版本号在26以及以上即可
+    implementation 'com.android.support:appcompat-v7:28.0.0'
+    implementation 'com.android.support:recyclerview-v7:28.0.0'
+    implementation 'com.android.support:design:28.0.0'*/
+
+    // compile 'com.google.android.gms:play-services-analytics:8.3.0'
+}
+
+def appModuleRootFolder = '.'
+def srcDir = 'src'
+def googleServicesJson = 'google-services.json'
+def commonHome = '../../..'
+def html5Assets = 'src/main/assets/HTML5'
+
+task switchToFree(type: Copy) {
+    def buildType = 'free'
+    from "${commonHome}/editions/${buildType}/src"
+    into html5Assets
+}
+
+task switchToFreeGA(type: Copy) {
+    def buildType = 'free'
+    from "${commonHome}/editions/${buildType}/android-resources"
+    include "$googleServicesJson"
+    into "$appModuleRootFolder"
+}
+
+task generateWebpackBundle(type: Exec) {
+   // workingDir '../../../bin'
+   // commandLine './bundle-compile.sh'
+
+     workingDir '../../../bin'
+     commandLine './compile.sh'
+}
+
+class GenerateScratchJrPNGsTask extends DefaultTask {
+    File commonHome = project.file("../../..")
+    File binDir = project.file("${commonHome}/bin")
+
+    @OutputDirectory
+    File generatedAssets = project.file("src/main/assets")
+    File generatedHtml5Assets = project.file("${generatedAssets}/HTML5")
+    File pngLibrary = project.file("${generatedHtml5Assets}/pnglibrary")
+    File svgLibrary = project.file("${generatedHtml5Assets}/svglibrary")
+
+    @TaskAction
+    def go() {
+        /*pngLibrary.mkdirs()
+        ant.exec(executable: "${binDir}/convert-svg-to-png.py",
+            failOnError: true)
+        {
+            arg(value: "-i ${svgLibrary}/")
+            arg(value: "-o ${pngLibrary}/")
+        }*/
+    }
+}
+class CleanScratchJrResourcesTask extends DefaultTask {
+    File generatedAssets = project.file('src/main/assets')
+
+    @TaskAction
+    def go() {
+        generatedAssets.deleteDir()
+    }
+}
+
+task generateScratchJrPNGs(type: GenerateScratchJrPNGsTask)
+task cleanScratchJrResources(type: CleanScratchJrResourcesTask)
+
+afterEvaluate {
+    preBuild.dependsOn generateWebpackBundle
+//    processFreeDebugGoogleServices.dependsOn switchToFreeGA
+   // processFreeReleaseGoogleServices.dependsOn switchToFreeGA
+
+
+    tasks.whenTaskAdded { task ->
+        if (task.name == 'processFreeReleaseGoogleServices') {
+            task.dependsOn 'switchToFree'
+        }
+        if (task.name == 'prepareFreeReleaseDependencies') {
+            task.dependsOn 'switchToFree'
+        }
+
+        if (task.name == 'generateFreeReleaseResources') {
+            task.dependsOn 'generateScratchJrPNGs'
+        }
+
+    }
+
+    //prepareFreeDebugDependencies.dependsOn switchToFree
+    generateFreeReleaseResources.dependsOn switchToFree
+    generateFreeDebugResources.dependsOn switchToFree
+
+//    prepareFreeReleaseDependencies.dependsOn switchToFree
+
+  //  generateFreeReleaseResources.dependsOn generateScratchJrPNGs
+    generateFreeDebugResources.dependsOn generateScratchJrPNGs
+    generateScratchJrPNGs.mustRunAfter switchToFree
+}
+
+clean.dependsOn('cleanScratchJrResources')

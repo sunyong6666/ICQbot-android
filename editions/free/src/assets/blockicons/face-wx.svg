@@ -1,0 +1,19 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+<circle cx="38" cy="33" r="22"
+stroke="#2196F3"
+stroke-width="3"/>
+
+<!-- eyes -->
+<circle cx="30" cy="29" r="2.5" fill="#2196F3"/>
+<circle cx="46" cy="29" r="2.5" fill="#2196F3"/>
+
+<!-- smile -->
+<path d="M28 39C33 46 43 46 48 39"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+</svg>

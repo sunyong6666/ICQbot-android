@@ -1,0 +1,42 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+<rect width="76" height="66" fill="transparent"/>
+
+<!-- fist -->
+<path d="
+M27 45
+C24 41 24 31 26 27
+C28 24 32 23 35 25
+C36 21 42 21 44 25
+C48 22 53 25 53 30
+V39
+C53 46 47 50 38 50
+H32
+C30 50 28 48 27 45Z"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linejoin="round"/>
+
+
+<!-- folded fingers -->
+<path d="M30 31H49"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+<path d="M30 37H50"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+<!-- thumb -->
+<path d="M27 33C23 34 22 38 26 41"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+</svg>

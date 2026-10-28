@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>人脸识别</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /*视频全屏铺满 */
+    video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: #000;
+      filter: blur(5px);
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    /* 底部浮层 */
+    #result {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      height: 12vh; 
+      line-height: 12vh;
+      font-size: 4vh;     
+      font-weight: bold;
+      color: #fff;
+      background: rgba(0,0,0,0.6);
+    }
+  </style>
+</head>
+
+<body>
+
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div id="result">loading...</div>
+ 
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from './config/mediapipe-tasks-vision.js';
+
+
+let faceLandmarker;
+const video = document.getElementById("video");
+const resultDiv = document.getElementById("result");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+async function init() {
+  try {
+    const vision = await FilesetResolver.forVisionTasks('./config/wasm');
+
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: './config/models/face_landmarker.task'
+      },
+      outputFaceBlendshapes: true,
+      runningMode: "VIDEO",
+      numFaces: 1
+    });
+
+    const stream = await navigator.mediaDevices.getUserMedia({ video: {
+      width: 640,
+      height: 480
+    }});
+
+    video.srcObject = stream;
+
+    video.onloadeddata = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      detect();
+    };
+
+  } catch (e) {
+    resultDiv.innerText = "摄像头失败: " + e.message;
+  }
+}
+
+let interval = 50; // 检测间隔，单位毫秒
+let lastTime = 0;
+
+let face_data = [0,0,0,0,0]; // 顺序：微笑、张嘴、眨眼、嘟嘴、抬眉
+
+function detect() {
+  const now = performance.now();
+
+  // 限制检测速率
+  if (now - lastTime > interval) {
+    lastTime = now;
+    face_data = [0,0,0,0,0];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);//清除绘制
+
+    //执行人脸检测
+    const result = faceLandmarker.detectForVideo(video, performance.now());
+
+    if (result.faceBlendshapes.length > 0 && result.faceLandmarks.length > 0) {//是否检测到人脸
+      const blend = result.faceBlendshapes[0].categories;
+
+      if(drawEnabled){
+        drawLandmarks(result.faceLandmarks[0]); // 绘制人脸关键点
+      }
+
+      // 辅助函数：根据名称获取对应动作的置信度分数
+      const getScore = (name) =>
+        blend.find(c => c.categoryName === name)?.score || 0;
+      
+      const smile = getScore("mouthSmileLeft") + getScore("mouthSmileRight");// 合并左右嘴角上扬分数，得到整体微笑程度
+      const mouthOpen = getScore("jawOpen");// 获取下巴张开程度，值越大表示嘴张得越开
+      const eyeBlink = getScore("eyeBlinkLeft") + getScore("eyeBlinkRight");// 合并左右眼闭合程度，得到眨眼程度
+      const pout = getScore("mouthPucker");        // 嘟嘴
+      const browRaise = getScore( "browInnerUp");   // 抬眉
+      
+      let text = "";
+
+      if (smile > 0.8){
+        text += "😄 微笑 ";
+        face_data[0] = 1;
+      }
+      if (mouthOpen > 0.5) {
+        text += "😮 张嘴 ";
+        face_data[1] = 1;
+      }
+      if (eyeBlink > 1) {
+        text += "😉 眨眼 ";
+        face_data[2] = 1;
+      }
+      if (pout > 0.95) {
+        text += "😗 嘟嘴" ;
+        face_data[3] = 1;
+      }
+      if (browRaise > 0.95) {
+        text += "🤨 抬眉";
+        face_data[4] = 1;
+      }
+
+      resultDiv.innerText = text || "正常表情";
+    } else {
+      resultDiv.innerText = "未检测到人脸";
+    }
+  }
+
+  if (window.Android) {
+    window.Android.onFaceData(JSON.stringify(face_data));
+  }
+
+  requestAnimationFrame(detect);
+}
+
+// 定义关键点索引
+const LANDMARKS = {
+  BROW: {
+    LEFT: [63, 105, 66, 107],
+    RIGHT: [293, 334, 296, 336]
+  },
+  EYE: {
+    LEFT: [
+      33, 7, 163, 144, 145, 153, 154, 155,133, 173, 157, 158, 159, 160, 161, 246
+    ],
+    RIGHT: [
+      362, 382, 381, 380, 374, 373, 390, 249,263, 466, 388, 387, 386, 385, 384, 398
+    ]
+  },
+  MOUTH:{
+    UPPER: [61, 185, 40, 39, 37, 0, 267, 269, 270, 291],
+    DOWN: [61, 146, 91, 181, 84, 17, 314, 405,291,270]
+  },
+  NOSE: [168, 197, 195, 5, 4, 6],
+  FACE_OVAL: [
+    10, 338, 297, 332, 284, 251, 389, 356,
+    454, 323, 361, 288, 397, 365, 379, 378,
+    400, 377, 152, 148, 176, 149, 150, 136,
+    172, 58, 132, 93, 234, 127, 162, 21,
+    54, 103, 67, 109,10,338
+  ]
+};
+
+const DRAW_CONFIG = {
+  brow: {
+    color: '#FF6B9D',
+    width: 20
+  },
+  eye: {
+    color: '#4A90E2',
+    width: 20
+  },
+  mouth: {
+    color: '#FF4757',
+    width: 15
+  }
+};
+
+// 绘制人脸关键点和轮廓
+function drawLandmarks(landmarks) {
+  drawBrow(landmarks);
+  drawEye(landmarks);
+  drawMouth(landmarks);
+  drawNose(landmarks);
+  drawFaceOval(landmarks);
+}
+
+//眉毛
+function drawBrow(landmarks) {
+  applyStyle(DRAW_CONFIG.brow);
+
+  drawCurve(landmarks, LANDMARKS.BROW.LEFT);
+  drawCurve(landmarks, LANDMARKS.BROW.RIGHT);
+}
+
+//眼睛
+function drawEye(landmarks) {
+  applyStyle(DRAW_CONFIG.eye);
+
+  drawCurve(landmarks, LANDMARKS.EYE.LEFT);
+  drawCurve(landmarks, LANDMARKS.EYE.RIGHT);
+}
+
+//嘴巴
+function drawMouth(landmarks) {
+  applyStyle(DRAW_CONFIG.mouth);
+  drawCurve(landmarks, LANDMARKS.MOUTH.UPPER);
+  drawCurve(landmarks, LANDMARKS.MOUTH.DOWN); 
+}
+
+//鼻子
+function drawNose(landmarks) {
+  applyStyle({ color: '#FFB74D', width: 10 });
+
+  drawCurve(landmarks, LANDMARKS.NOSE);
+}
+
+//脸部轮廓
+function drawFaceOval(landmarks) {
+  applyStyle({  color: '#FFFFFF',  width: 8 });
+
+  drawCurve(landmarks, LANDMARKS.FACE_OVAL);
+}
+
+
+//设置样式
+function applyStyle(style) {
+  ctx.lineWidth = style.width;
+  ctx.strokeStyle = style.color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
+
+//绘制
+function drawCurve(landmarks, indices) {
+  if (indices.length < 2) return;
+
+  ctx.beginPath();
+
+  for (let i = 0; i < indices.length - 1; i++) {
+    const p1 = landmarks[indices[i]];
+    const p2 = landmarks[indices[i + 1]];
+
+    const x1 = p1.x * canvas.width;
+    const y1 = p1.y * canvas.height;
+    const x2 = p2.x * canvas.width;
+    const y2 = p2.y * canvas.height;
+
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2;
+
+    if (i === 0) ctx.moveTo(x1, y1);
+
+    ctx.quadraticCurveTo(x1, y1, cx, cy);
+  }
+
+  ctx.stroke();
+}
+
+
+
+// 给 Android 调用的函数,调节检测频率，单位毫秒
+function setDetectInterval(ms) {
+  console.log("设置检测频率:", ms);
+  interval = ms;
+}
+
+/**
+ * 统一控制：背景虚化 + 人脸描边
+ */
+var drawEnabled = true;
+window.setUIVisible = function(enable) {
+  drawEnabled = enable;
+  if(enable){
+    video.style.filter = "blur(5px)";
+  }else{
+    video.style.filter = "blur(0px)";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+init();
+</script>
+
+</body>
+</html>

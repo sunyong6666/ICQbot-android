@@ -1,0 +1,31 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+
+<circle cx="38" cy="33" r="22"
+stroke="#2196F3"
+stroke-width="3"/>
+
+
+<!-- normal eye -->
+<circle cx="46" cy="29"
+r="2.5"
+fill="#2196F3"/>
+
+
+<!-- wink eye -->
+<path d="M26 29L34 29"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+<!-- smile -->
+<path d="M30 40C35 44 41 44 46 40"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+</svg>

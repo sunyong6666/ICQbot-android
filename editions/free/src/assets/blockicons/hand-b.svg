@@ -1,0 +1,38 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+
+<rect width="76" height="66" fill="transparent"/>
+
+
+<!-- open palm -->
+<path d="
+M30 48
+C27 43 28 35 30 31
+
+V15
+C30 12 34 12 35 15
+V30
+
+V10
+C35 7 39 7 40 10
+V30
+
+V9
+C40 6 44 6 45 9
+V31
+
+V14
+C45 11 49 11 50 14
+V36
+
+C50 44 45 50 37 50
+C33 50 31 49 30 48Z"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"
+stroke-linejoin="round"/>
+
+
+</svg>

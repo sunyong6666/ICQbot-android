@@ -1,0 +1,40 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+
+<circle cx="38" cy="33" r="22"
+stroke="#2196F3"
+stroke-width="3"/>
+
+
+<!-- eyebrows -->
+<path d="M25 23C29 20 33 20 36 22"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+<path d="M40 22C44 20 48 20 51 23"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+<!-- eyes -->
+<circle cx="30" cy="30"
+r="2.5"
+fill="#2196F3"/>
+
+<circle cx="46" cy="30"
+r="2.5"
+fill="#2196F3"/>
+
+
+<!-- neutral mouth -->
+<path d="M31 42H45"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+</svg>

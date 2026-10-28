@@ -1,0 +1,23 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+<circle cx="38" cy="33" r="22"
+stroke="#2196F3"
+stroke-width="3"/>
+
+
+<!-- eyes -->
+<circle cx="30" cy="29" r="2.5" fill="#2196F3"/>
+<circle cx="46" cy="29" r="2.5" fill="#2196F3"/>
+
+
+<!-- open mouth -->
+<ellipse cx="38" cy="42"
+rx="7"
+ry="5"
+stroke="#2196F3"
+stroke-width="3"/>
+
+
+</svg>

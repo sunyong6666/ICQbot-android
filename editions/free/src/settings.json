@@ -1,0 +1,33 @@
+{
+    "edition": "free",
+    "scratchJrVersion": "iOSv01",
+    "useStoryStarters": false,
+    "shareEnabled": true,
+    "defaultSprite": "ICxa4.svg",
+    "spriteOutlineColor": "white",
+    "stageColor": "#F5F2F7",
+    "textSpriteFont": "Helvetica",
+    "blockArgFont": "Verdana",
+    "paletteBalloonFont": "Roboto",
+    "categoryStartColor": "#FFE75A",
+    "categoryMotionColor": "#4B8CC2",
+    "categoryLooksColor": "#CD7CD1",
+    "categorySoundColor": "#48CC7E",
+    "categoryFlowColor": "#FFBE57",
+    "categoryStopColor": "#D62222",
+    "categoryRobotColor":"#cacaca",
+    "paletteBlockShadowOpacity": 0.8,
+    "autoSaveInterval": 30000,
+    "defaultLocale": "cn",
+    "defaultLocaleShort": "cn",
+    "supportedLocales": {
+        
+        "简体中文": "cn",
+        "English": "en",
+        "Русский":"ru",
+        "日本語": "ja",
+        "한국어": "ko",
+        "繁体中文": "tw"
+    },
+    "settingsPageDisabled": false
+}

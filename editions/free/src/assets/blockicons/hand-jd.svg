@@ -1,0 +1,46 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+<rect width="76" height="66" fill="transparent"/>
+
+
+<!-- palm -->
+<path d="
+M31 49
+C27 44 28 37 31 33
+C34 30 38 32 40 36
+V46
+C43 48 48 44 49 39
+"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"
+stroke-linejoin="round"/>
+
+
+<!-- index finger -->
+<path d="
+M37 35
+L28 15
+C27 12 30 10 32 13
+L42 32"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"
+stroke-linejoin="round"/>
+
+
+<!-- middle finger -->
+<path d="
+M42 32
+L50 11
+C51 8 55 9 54 13
+L47 35"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"
+stroke-linejoin="round"/>
+
+
+</svg>

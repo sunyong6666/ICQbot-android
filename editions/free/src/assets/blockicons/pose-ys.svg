@@ -1,0 +1,48 @@
+<svg width="76" height="66" viewBox="0 0 76 66"
+fill="none"
+xmlns="http://www.w3.org/2000/svg">
+
+
+<rect width="76" height="66" fill="transparent"/>
+
+
+<!-- head -->
+<circle cx="38" cy="14" r="7"
+stroke="#2196F3"
+stroke-width="3"/>
+
+
+<!-- body -->
+<path d="M38 21V42"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+<!-- left arm down -->
+<path d="M38 27L25 35"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+<!-- right arm up -->
+<path d="M38 27L51 16L56 8"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+<!-- legs -->
+<path d="M38 42L29 55"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+<path d="M38 42L47 55"
+stroke="#2196F3"
+stroke-width="3"
+stroke-linecap="round"/>
+
+
+</svg>

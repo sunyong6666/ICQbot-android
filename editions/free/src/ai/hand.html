@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>手势识别</title>
+
+<style>
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+}
+
+/* 摄像头 */
+video{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+    filter:blur(5px);
+}
+
+/* 描边层 */
+canvas{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    transform:scaleX(-1);
+}
+
+/*结果显示*/
+#result{
+    position:fixed;
+    bottom:0;
+    left:0;
+    width:100%;
+    height:12vh;
+    line-height:12vh;
+    text-align:center;
+    font-size:4vh;
+    font-weight:bold;
+    color:white;
+    background:rgba(0,0,0,0.6);
+}
+
+</style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+
+<div id="result">
+loading...
+</div>
+
+<script type="module">
+import {HandLandmarker,FilesetResolver} from './config/mediapipe-tasks-vision.js';
+
+
+let handLandmarker;
+
+const video=document.getElementById("video");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+const resultDiv=document.getElementById("result");
+
+
+let interval=50;
+let lastTime=0;
+
+// 是否绘制
+let drawEnabled=true;
+
+// 返回数据
+let hand_data=[0,0,0,0];// 左1右2、剪刀、石头、布
+
+async function init(){
+    const vision = await FilesetResolver.forVisionTasks( './config/wasm' );
+    handLandmarker = await HandLandmarker.createFromOptions(vision,{ baseOptions:{modelAssetPath:'./config/models/hand_landmarker.task'},runningMode:"VIDEO",numHands:1});
+
+    const stream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480}});
+    video.srcObject=stream;
+
+    video.onloadeddata=()=>{
+        canvas.width=video.videoWidth;
+        canvas.height=video.videoHeight;
+        detect();
+    }
+}
+
+function isFingerUp(tip,pip){
+    return tip.y<pip.y;
+}
+
+function detectGesture(hand,handedness){
+    hand_data=[0,0,0,0];
+    let thumb;
+
+    if(handedness==="Right"){
+        hand_data[0]=2;
+        thumb=hand[4].x>hand[3].x;
+    }else{
+        hand_data[0]=1;
+        thumb=hand[4].x<hand[3].x;
+    }
+
+    const index=isFingerUp(
+        hand[8],
+        hand[6]
+    );
+
+    const middle=isFingerUp(
+        hand[12],
+        hand[10]
+    );
+
+    const ring=isFingerUp(
+        hand[16],
+        hand[14]
+    );
+
+    const pinky=isFingerUp(
+        hand[20],
+        hand[18]
+    );
+
+    if(!thumb && !index && !middle && !ring && !pinky){
+        hand_data[2]=1;
+        return "✊ 石头";
+    }
+
+    if(!thumb && index && middle && !ring && !pinky){
+        hand_data[1]=1;
+        return "✌️ 剪刀";
+    }
+
+    if(thumb && index && middle && ring && pinky){
+        hand_data[3]=1;
+        return "🖐 布";
+    }
+
+    return "未知手势";
+}
+
+
+function detect(){
+    const now=performance.now();
+
+    if(now-lastTime>interval){
+        lastTime=now;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        const result= handLandmarker.detectForVideo(video,now);
+
+        if(result.landmarks && result.landmarks.length>0){
+            const hand = result.landmarks[0];
+            const handedness= result.handedness[0][0].categoryName;
+            let gesture =  detectGesture(hand,handedness);
+            resultDiv.innerText= gesture;// handedness+ " 手: "+
+
+            if(drawEnabled){
+                drawHand(hand);
+            }
+        }else{
+            resultDiv.innerText="未检测到手";
+            hand_data=[0,0,0,0];
+        }
+
+        // 返回Android
+        if(window.Android){
+            window.Android.onFaceData(JSON.stringify(hand_data));
+        }
+    }
+    requestAnimationFrame(detect);
+}
+
+
+// ===============================
+// 绘制手部关键点（光效）
+// ===============================
+
+const HAND = {
+  WRIST: 0,
+
+  THUMB:  [0, 1, 2, 3, 4],
+  INDEX:  [0, 5, 6, 7, 8],
+  MIDDLE: [0, 9, 10, 11, 12],
+  RING:   [0, 13, 14, 15, 16],
+  PINKY:  [0, 17, 18, 19, 20]
+};
+
+// 手掌连接线
+const PALM_LINES = [
+  [0, 1], [0, 5], [0, 9], [0, 13], [0, 17],
+  [1, 5], [5, 9], [9, 13], [13, 17]
+];
+
+// 样式配置
+const HAND_STYLE = {
+  thumb:  { color: '#FF6B9D', glow: '#FF6B9D' },
+  index:  { color: '#4A90E2', glow: '#4A90E2' },
+  middle: { color: '#50E3C2', glow: '#50E3C2' },
+  ring:   { color: '#F5A623', glow: '#F5A623' },
+  pinky:  { color: '#B8E986', glow: '#B8E986' },
+  palm:   { color: '#888888', glow: '#888888' },
+
+  width: 14,     // 所有主线统一宽度
+  palmWidth: 8,  // 手掌稍细
+  glowWidth: 26  // 外发光宽度
+};
+
+function drawHand(hand) {
+  if (!hand || hand.length < 21) return;
+
+  // ---- 手掌（先画，在底层） ----
+  PALM_LINES.forEach(([i, j]) => {
+    drawGlowLine(
+      hand,
+      [i, j],
+      HAND_STYLE.palm.color,
+      HAND_STYLE.palm.glow,
+      HAND_STYLE.palmWidth,
+      HAND_STYLE.glowWidth
+    );
+  });
+
+  // ---- 手指 ----
+  drawFinger(hand, HAND.THUMB,  HAND_STYLE.thumb);
+  drawFinger(hand, HAND.INDEX,  HAND_STYLE.index);
+  drawFinger(hand, HAND.MIDDLE, HAND_STYLE.middle);
+  drawFinger(hand, HAND.RING,   HAND_STYLE.ring);
+  drawFinger(hand, HAND.PINKY,  HAND_STYLE.pinky);
+}
+
+// ===============================
+// 绘制单根手指（线宽固定）
+// ===============================
+function drawFinger(hand, indices, style) {
+  for (let i = 0; i < indices.length - 1; i++) {
+    drawGlowLine(
+      hand,
+      [indices[i], indices[i + 1]],
+      style.color,
+      style.glow,
+      HAND_STYLE.width,
+      HAND_STYLE.glowWidth
+    );
+  }
+}
+
+// ===============================
+// 光效线条（核心）
+// ===============================
+function drawGlowLine(hand, [i, j], color, glowColor, lineWidth, glowWidth) {
+  const p1 = hand[i];
+  const p2 = hand[j];
+
+  const x1 = p1.x * canvas.width;
+  const y1 = p1.y * canvas.height;
+  const x2 = p2.x * canvas.width;
+  const y2 = p2.y * canvas.height;
+
+  // ---- 外发光（低透明度） ----
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth = glowWidth;
+  ctx.strokeStyle = glowColor;
+  ctx.globalAlpha = 0.25;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // ---- 内实线（高亮） ----
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth = lineWidth;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 1;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+}
+
+
+// ===============================
+// Android控制接口
+// ==============================
+window.setUIVisible = function(enable) {
+  drawEnabled = enable;
+  if(enable){
+    video.style.filter = "blur(5px)";
+  }else{
+    video.style.filter = "blur(0px)";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+window.setDetectInterval=function(ms){
+    interval=ms;
+}
+
+init();
+</script>
+</body>
+</html>

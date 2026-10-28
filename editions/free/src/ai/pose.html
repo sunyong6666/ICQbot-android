@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>姿态识别</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* 摄像头 */
+    video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      filter: blur(5px);
+    }
+
+    /* 描边层 */
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    /* 结果显示 */
+    #result {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 12vh;
+      line-height: 12vh;
+      text-align: center;
+      font-size: 4vh;
+      font-weight: bold;
+      color: white;
+      background: rgba(0, 0, 0, 0.6);
+    }
+  </style>
+</head>
+
+<body>
+
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div id="result">loading...</div>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver } from './config/mediapipe-tasks-vision.js';
+
+let poseLandmarker;
+
+const video  = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx    = canvas.getContext("2d");
+const resultDiv = document.getElementById("result");
+
+let interval  = 50;
+let lastTime  = 0;
+
+// 是否绘制
+let drawEnabled = true;
+
+// 返回数据
+let pose_data = [0, 0, 0, 0];// [双手放下, 左手举起, 右手举起, 双手举起]
+
+// ===============================
+// 姿态关键点索引（MediaPipe Pose）
+// ===============================
+const POSE = {
+  // 头部
+  NOSE:      0,
+  LEFT_EYE:  2,
+  RIGHT_EYE: 5,
+
+  // 上半身
+  LEFT_SHOULDER:   11,
+  RIGHT_SHOULDER:  12,
+  LEFT_ELBOW:      13,
+  RIGHT_ELBOW:     14,
+  LEFT_WRIST:      15,
+  RIGHT_WRIST:     16,
+  LEFT_INDEX:      19,
+  RIGHT_INDEX:     20,
+
+  // 下半身
+  LEFT_HIP:        23,
+  RIGHT_HIP:       24,
+  LEFT_KNEE:       25,
+  RIGHT_KNEE:      26,
+  LEFT_ANKLE:      27,
+  RIGHT_ANKLE:     28,
+};
+
+// ===============================
+// 骨骼连接定义
+// ===============================
+const SKELETON = {
+  // 头部
+  HEAD: [0], // 单独画椭圆
+
+  // 躯干
+  SHOULDERS: [11, 12],
+  SPINE:     [11, 23, 24, 12], // 左肩→左髋→右髋→右肩
+
+  // 左臂
+  LEFT_ARM:  [11, 13, 15, 19],
+  // 右臂
+  RIGHT_ARM: [12, 14, 16, 20],
+
+  // 左腿
+  LEFT_LEG:  [23, 25, 27],
+  // 右腿
+  RIGHT_LEG: [24, 26, 28],
+};
+
+// ===============================
+// 样式配置
+// ===============================
+const POSE_STYLE = {
+  head:   { color: '#64C8FF', glow: '#64C8FF', width: 20, glowWidth: 36 },
+  torso:  { color: '#B06CFF', glow: '#B06CFF', width: 18, glowWidth: 34 },
+  arm:    { color: '#FFD93D', glow: '#FFD93D', width: 14, glowWidth: 28 },
+  forearm:{ color: '#FF6B6B', glow: '#FF6B6B', width: 14, glowWidth: 28 },
+  hand:   { color: '#50E3C2', glow: '#50E3C2', width: 10, glowWidth: 22 },
+  leg:    { color: '#F5A623', glow: '#F5A623', width: 16, glowWidth: 30 },
+  shin:   { color: '#FF8C42', glow: '#FF8C42', width: 14, glowWidth: 26 },
+};
+
+// ===============================
+// 初始化
+// ===============================
+async function init() {
+  try {
+    const vision = await FilesetResolver.forVisionTasks('./config/wasm');
+
+    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: './config/models/pose_landmarker_lite.task',
+        delegate: "GPU"
+      },
+      runningMode: "VIDEO",
+      numPoses: 1
+    });
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 480, height: 360 }
+    });
+    video.srcObject = stream;
+
+    video.onloadeddata = () => {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      detect();
+    };
+  } catch (e) {
+    resultDiv.innerText = "摄像头失败: " + e.message;
+  }
+}
+
+// ===============================
+// 工具函数：欧氏距离
+// ===============================
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+
+
+// ===============================
+// 姿态判定
+// ===============================
+// ===============================
+// 姿态判定：手臂举起状态
+// ===============================
+function detectPose(lm) {
+  pose_data = [0, 0, 0, 0];
+
+  const lShoulder = lm[11];
+  const rShoulder = lm[12];
+  const lWrist    = lm[15];
+  const rWrist    = lm[16];
+
+  // 手臂是否举起（手腕明显高于肩膀）
+  const leftArmUp  = lWrist.y < lShoulder.y - 0.06;
+  const rightArmUp = rWrist.y < rShoulder.y - 0.06;
+
+  // 判定优先级（双手 > 单手 > 放下）
+  if (leftArmUp && rightArmUp) {
+    pose_data[3] = 1; // 双手举起
+    return "🙌 双手举起";
+  }
+
+  if (leftArmUp && !rightArmUp) {
+    pose_data[1] = 1; // 左手举起
+    return "✋ 左手举起";
+  }
+
+  if (!leftArmUp && rightArmUp) {
+    pose_data[2] = 1; // 右手举起
+    return "✋ 右手举起";
+  }
+
+  // 默认：双手放下
+  pose_data[0] = 1;
+  return "🧍 双手放下";
+}
+
+// ===============================
+// 光效线条绘制
+// ===============================
+function drawGlowLine(a, b, style) {
+  const x1 = a.x * canvas.width;
+  const y1 = a.y * canvas.height;
+  const x2 = b.x * canvas.width;
+  const y2 = b.y * canvas.height;
+
+  // ---- 外发光 ----
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth   = style.glowWidth;
+  ctx.strokeStyle = style.glow;
+  ctx.globalAlpha = 0.25;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+
+  // ---- 内实线 ----
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth   = style.width;
+  ctx.strokeStyle = style.color;
+  ctx.globalAlpha = 1;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+}
+
+// ===============================
+// 画一条多段骨骼链
+// ===============================
+function drawBoneChain(lm, indices, style) {
+  for (let i = 0; i < indices.length - 1; i++) {
+    drawGlowLine(lm[indices[i]], lm[indices[i + 1]], style);
+  }
+}
+
+// ===============================
+// 画头部椭圆
+// ===============================
+function drawHead(lm, style) {
+  const nose      = lm[POSE.NOSE];
+  const leftEye   = lm[POSE.LEFT_EYE];
+  const rightEye  = lm[POSE.RIGHT_EYE];
+
+  const cx = nose.x * canvas.width;
+  const cy = nose.y * canvas.height * 0.92;
+
+  const eyeDist   = Math.abs(leftEye.x - rightEye.x) * canvas.width;
+  const headWidth  = eyeDist * 1.35;
+  const headHeight = headWidth * 1.45;
+
+  // ---- 外发光 ----
+//   ctx.beginPath();
+//   ctx.ellipse(cx, cy, headWidth * 1.3, headHeight * 1.3, 0, 0, Math.PI * 2);
+//   ctx.lineWidth   = style.glowWidth;
+//   ctx.strokeStyle = style.glow;
+//   ctx.globalAlpha = 0.2;
+//   ctx.stroke();
+
+  // ---- 内实线 ----
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, headWidth, headHeight, 0, 0, Math.PI * 2);
+  ctx.lineWidth   = style.width;
+  ctx.strokeStyle = style.color;
+  ctx.globalAlpha = 1;
+  ctx.stroke();
+}
+
+// ===============================
+// 绘制整个人体姿态
+// ===============================
+function drawPose(lm) {
+  if (!lm || lm.length < 33) return;
+
+  // 头部
+  drawHead(lm, POSE_STYLE.head);
+
+  // 躯干（紫）
+  drawBoneChain(lm, SKELETON.SHOULDERS, POSE_STYLE.torso);
+  drawBoneChain(lm, [11, 23],          POSE_STYLE.torso);
+  drawBoneChain(lm, [12, 24],          POSE_STYLE.torso);
+  drawBoneChain(lm, [23, 24],          POSE_STYLE.torso);
+
+  // 左臂：上臂（黄）→ 前臂（红）→ 手（青）
+  drawBoneChain(lm, [11, 13], POSE_STYLE.arm);
+  drawBoneChain(lm, [13, 15], POSE_STYLE.forearm);
+  drawBoneChain(lm, [15, 19], POSE_STYLE.hand);
+
+  // 右臂
+  drawBoneChain(lm, [12, 14], POSE_STYLE.arm);
+  drawBoneChain(lm, [14, 16], POSE_STYLE.forearm);
+  drawBoneChain(lm, [16, 20], POSE_STYLE.hand);
+
+  // 左腿：大腿（橙）→ 小腿（浅橙）
+  drawBoneChain(lm, [23, 25], POSE_STYLE.leg);
+  drawBoneChain(lm, [25, 27], POSE_STYLE.shin);
+
+  // 右腿
+  drawBoneChain(lm, [24, 26], POSE_STYLE.leg);
+  drawBoneChain(lm, [26, 28], POSE_STYLE.shin);
+}
+
+// ===============================
+// 主检测循环
+// ===============================
+function detect() {
+  const now = performance.now();
+
+  if (now - lastTime > interval) {
+    lastTime = now;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const result = poseLandmarker.detectForVideo(video, now);
+
+    if (result.landmarks && result.landmarks.length > 0) {
+      const lm = result.landmarks[0];
+
+      const gesture = detectPose(lm);
+      resultDiv.innerText = gesture;
+
+      if (drawEnabled) {
+        drawPose(lm);
+      }
+    } else {
+      resultDiv.innerText = "未检测到人体";
+      pose_data = [0, 0, 0, 0];
+    }
+
+    // Android 回调
+    if (window.Android) {
+      window.Android.onFaceData(JSON.stringify(pose_data));
+    }
+  }
+
+  requestAnimationFrame(detect);
+}
+
+// ===============================
+// 给 Android 调用的统一 UI 控制
+// ===============================
+window.setUIVisible = function(enable) {
+  drawEnabled = enable;
+  if(enable){
+    video.style.filter = "blur(5px)";
+  }else{
+    video.style.filter = "blur(0px)";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+// ===============================
+// 设置检测频率（ms）
+// ===============================
+window.setDetectInterval = function (ms) {
+  interval = ms;
+};
+
+init();
+</script>
+
+</body>
+</html>
